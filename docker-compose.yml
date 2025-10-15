@@ -1,0 +1,86 @@
+version: '3.8'
+
+# Docker Compose configuration cho Todo App
+# Bao gồm 3 services: PostgreSQL, Backend, Frontend
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: todo-postgres
+    restart: unless-stopped
+    environment:
+      # Cấu hình database
+      POSTGRES_DB: tododb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      # Expose port 5432 ra ngoài
+      - "5432:5432"
+    volumes:
+      # Persist data với volume
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - todo-network
+    healthcheck:
+      # Health check để đảm bảo PostgreSQL đã sẵn sàng
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend Spring Boot
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: todo-backend
+    restart: unless-stopped
+    environment:
+      # Cấu hình kết nối database
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: tododb
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+    ports:
+      # Expose port 8080 ra ngoài
+      - "8080:8080"
+    depends_on:
+      postgres:
+        # Chờ PostgreSQL healthy trước khi start
+        condition: service_healthy
+    networks:
+      - todo-network
+    healthcheck:
+      # Health check cho Spring Boot
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/api/todos"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Frontend React
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: todo-frontend
+    restart: unless-stopped
+    ports:
+      # Expose port 80 ra ngoài (hoặc map sang port khác như 3000:80)
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - todo-network
+
+# Volumes để persist data
+volumes:
+  postgres_data:
+    driver: local
+
+# Network để các services có thể communicate
+networks:
+  todo-network:
+    driver: bridge
