@@ -3,9 +3,9 @@ name: CI - Build and Test
 # Workflow này sẽ chạy khi có push hoặc pull request vào main branch
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, master, develop ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, master, develop ]
 
 jobs:
   # Job test backend
